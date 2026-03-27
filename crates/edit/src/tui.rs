@@ -867,17 +867,17 @@ impl Tui {
         }
 
         if node.attributes.bordered {
-            // ┌────┐
+            // ╭────╮
             {
                 let scratch = scratch_arena(None);
                 let mut fill = BString::empty();
-                fill.push(&*scratch, '┌');
+                fill.push(&*scratch, '╭');
                 fill.push_repeat(
                     &*scratch,
                     '─',
                     (outer_clipped.right - outer_clipped.left - 2) as usize,
                 );
-                fill.push(&*scratch, '┐');
+                fill.push(&*scratch, '╮');
                 self.framebuffer.replace_text(
                     outer_clipped.top,
                     outer_clipped.left,
@@ -908,17 +908,17 @@ impl Tui {
                 }
             }
 
-            // └────┘
+            // ╰────╯
             {
                 let scratch = scratch_arena(None);
                 let mut fill = BString::empty();
-                fill.push(&*scratch, '└');
+                fill.push(&*scratch, '╰');
                 fill.push_repeat(
                     &*scratch,
                     '─',
                     (outer_clipped.right - outer_clipped.left - 2) as usize,
                 );
-                fill.push(&*scratch, '┘');
+                fill.push(&*scratch, '╯');
                 self.framebuffer.replace_text(
                     outer_clipped.bottom - 1,
                     outer_clipped.left,
@@ -3158,7 +3158,7 @@ impl<'a> Context<'a, '_> {
             ButtonStyle::default().accelerator(accelerator).bracketed(false),
         );
         self.attr_focusable();
-        self.attr_padding(Rect::two(0, 1));
+        self.attr_padding(Rect::two(0, 2));
 
         let contains_focus = self.contains_focus();
         let keyboard_focus = accelerator != '\0'
@@ -3166,14 +3166,6 @@ impl<'a> Context<'a, '_> {
             && self.consume_shortcut(kbmod::ALT | InputKey::new(accelerator as u32));
 
         if contains_focus || keyboard_focus {
-            self.attr_background_rgba(self.tui.floater_default_bg);
-            self.attr_foreground_rgba(self.tui.floater_default_fg);
-
-            if self.is_focused() {
-                self.attr_background_rgba(self.indexed(IndexedColor::Green));
-                self.attr_foreground_rgba(self.contrasted(self.indexed(IndexedColor::Green)));
-            }
-
             self.next_block_id_mixin(mixin);
             self.table_begin("flyout");
             self.attr_float(FloatSpec {
@@ -3183,8 +3175,17 @@ impl<'a> Context<'a, '_> {
                 offset_x: 0.0,
                 offset_y: 1.0,
             });
-            self.attr_border();
             self.attr_focus_well();
+            self.attr_background_rgba(self.tui.floater_default_bg);
+            self.attr_foreground_rgba(self.tui.floater_default_fg);
+            self.table_set_columns(&[0, COORD_TYPE_SAFE_MAX]);
+            self.table_set_cell_gap(Size { width: 4, height: 0 });
+
+            // Top padding row
+            self.table_next_row();
+            self.block_begin("padding_top");
+            self.attr_intrinsic_size(Size { width: 0, height: 1 });
+            self.block_end();
 
             if keyboard_focus {
                 self.steal_focus();
@@ -3217,15 +3218,17 @@ impl<'a> Context<'a, '_> {
     ) -> bool {
         self.table_next_row();
         self.attr_focusable();
+        self.attr_padding(Rect::two(0, 2));
 
         // First menu item? Steal focus.
-        if self.tree.current_node.borrow_mut().siblings.prev.is_none() {
+        // Since we now have a padding row, the first item is the second child.
+        if self.tree.current_node.borrow().child_count == 2 {
             self.inherit_focus();
         }
 
         if self.is_focused() {
-            self.attr_background_rgba(self.indexed(IndexedColor::Green));
-            self.attr_foreground_rgba(self.contrasted(self.indexed(IndexedColor::Green)));
+            self.attr_background_rgba(StraightRgba::from_be(0x364a82ff));
+            self.attr_foreground_rgba(self.tui.floater_default_fg);
         }
 
         let clicked =
@@ -3249,6 +3252,12 @@ impl<'a> Context<'a, '_> {
 
     /// Ends the current menu.
     pub fn menubar_menu_end(&mut self) {
+        // Bottom padding row
+        self.table_next_row();
+        self.block_begin("padding_bottom");
+        self.attr_intrinsic_size(Size { width: 0, height: 1 });
+        self.block_end();
+
         self.table_end();
 
         if !self.input_consumed
@@ -3260,8 +3269,10 @@ impl<'a> Context<'a, '_> {
                 // focus the first/last item of the flyout respectively.
                 let ln = self.tree.last_node.borrow();
                 if self.tui.is_node_focused(ln.parent.map_or(0, |n| n.borrow().id)) {
-                    let selected_next =
-                        if key == vk::UP { ln.children.last } else { ln.children.first };
+                    // Skip the padding rows
+                    let first_item = ln.children.first.and_then(|n| n.borrow().siblings.next);
+                    let last_item = ln.children.last.and_then(|n| n.borrow().siblings.prev);
+                    let selected_next = if key == vk::UP { last_item } else { first_item };
                     if let Some(selected_next) = selected_next {
                         self.steal_focus_for(selected_next);
                         self.set_input_consumed();
@@ -3283,13 +3294,14 @@ impl<'a> Context<'a, '_> {
     /// Renders a button label with an optional accelerator character
     /// May also renders a checkbox or square brackets for inline buttons
     fn button_label(&mut self, classname: &'static str, text: &str, style: ButtonStyle) {
+        let is_focused = self.is_focused();
         // Label prefix
         self.styled_label_begin(classname);
         if style.bracketed {
             self.styled_label_add_text("[");
         }
         if let Some(checked) = style.checked {
-            self.styled_label_add_text(if checked { "🗹 " } else { "  " });
+            self.styled_label_add_text(if checked { "✓ " } else { "  " });
         }
         // Label text
         match style.accelerator {
@@ -3312,18 +3324,26 @@ impl<'a> Context<'a, '_> {
                 if off < text.len() {
                     // Add an underline to the accelerator.
                     self.styled_label_add_text(&text[..off]);
-                    self.styled_label_set_attributes(Attributes::Underlined);
+                    if !is_focused {
+                        self.styled_label_set_attributes(Attributes::Underlined);
+                    }
                     self.styled_label_add_text(&text[off..off + 1]);
-                    self.styled_label_set_attributes(Attributes::None);
+                    if !is_focused {
+                        self.styled_label_set_attributes(Attributes::None);
+                    }
                     self.styled_label_add_text(&text[off + 1..]);
                 } else {
                     // Add the accelerator in parentheses and underline it.
                     let ch = accelerator as u8;
                     self.styled_label_add_text(text);
                     self.styled_label_add_text("(");
-                    self.styled_label_set_attributes(Attributes::Underlined);
+                    if !is_focused {
+                        self.styled_label_set_attributes(Attributes::Underlined);
+                    }
                     self.styled_label_add_text(unsafe { str_from_raw_parts(&ch, 1) });
-                    self.styled_label_set_attributes(Attributes::None);
+                    if !is_focused {
+                        self.styled_label_set_attributes(Attributes::None);
+                    }
                     self.styled_label_add_text(")");
                 }
             }
@@ -3359,6 +3379,7 @@ impl<'a> Context<'a, '_> {
             shortcut_text.push(self.arena(), shortcut_letter);
 
             self.label("shortcut", &shortcut_text);
+            self.attr_position(Position::Right);
         } else {
             self.block_begin("shortcut");
             self.block_end();

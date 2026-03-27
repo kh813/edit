@@ -11,6 +11,7 @@ use edit::input::{kbmod, vk};
 use edit::tui::*;
 use edit::{icu, path};
 use stdext::arena::scratch_arena;
+use stdext::arena_format;
 use stdext::collections::BVec;
 
 use crate::localization::*;
@@ -93,7 +94,9 @@ pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
                 ctx.attr_foreground_rgba(fg);
                 {
                     for (idx, suggestion) in state.file_picker_autocomplete.iter().enumerate() {
-                        let sel = ctx.list_item(false, suggestion.as_str());
+                        let icon = if suggestion.as_str().ends_with('/') { "📁 " } else { "📄 " };
+                        let label = arena_format!(ctx.arena(), "{}{}", icon, suggestion.as_str());
+                        let sel = ctx.list_item(false, &label);
                         if sel != ListSelection::Unchanged {
                             state.file_picker_pending_name = suggestion.as_path().into();
                         }
@@ -153,16 +156,26 @@ pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
             ctx.list_begin("files");
             ctx.inherit_focus();
 
-            for entries in state.file_picker_entries.as_ref().unwrap() {
-                for entry in entries {
-                    match ctx.list_item(false, entry.as_str()) {
-                        ListSelection::Unchanged => {}
-                        ListSelection::Selected => {
-                            state.file_picker_pending_name = entry.as_path().into()
+            if let Some(entries_all) = &state.file_picker_entries {
+                for (idx, entries) in entries_all.iter().enumerate() {
+                    for entry in entries {
+                        let icon = match idx {
+                            0 => "⤴️ ", // ..
+                            1 => "📁 ", // directories
+                            2 => "📄 ", // files
+                            _ => "",
+                        };
+                        let label = arena_format!(ctx.arena(), "{}{}", icon, entry.as_str());
+
+                        match ctx.list_item(false, &label) {
+                            ListSelection::Unchanged => {}
+                            ListSelection::Selected => {
+                                state.file_picker_pending_name = entry.as_path().into()
+                            }
+                            ListSelection::Activated => activated = true,
                         }
-                        ListSelection::Activated => activated = true,
+                        ctx.attr_overflow(Overflow::TruncateMiddle);
                     }
-                    ctx.attr_overflow(Overflow::TruncateMiddle);
                 }
             }
 
@@ -215,10 +228,18 @@ pub fn draw_file_picker(ctx: &mut Context, state: &mut State) {
                 ctx.table_next_row();
                 ctx.inherit_focus();
 
-                save = ctx.button("yes", loc(LocId::Yes), ButtonStyle::default());
+                save = ctx.button(
+                    "yes",
+                    &arena_format!(ctx.arena(), "✓ {}", loc(LocId::Yes)),
+                    ButtonStyle::default().bracketed(false),
+                );
                 ctx.inherit_focus();
 
-                if ctx.button("no", loc(LocId::No), ButtonStyle::default()) {
+                if ctx.button(
+                    "no",
+                    &arena_format!(ctx.arena(), "✕ {}", loc(LocId::No)),
+                    ButtonStyle::default().bracketed(false),
+                ) {
                     state.file_picker_overwrite_warning = None;
                 }
             }

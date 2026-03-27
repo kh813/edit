@@ -8,6 +8,7 @@ use edit::helpers::*;
 use edit::icu;
 use edit::input::{kbmod, vk};
 use edit::tui::*;
+use stdext::arena_format;
 use stdext::string_from_utf8_lossy_owned;
 
 use crate::localization::*;
@@ -66,8 +67,8 @@ fn draw_search(ctx: &mut Context, state: &mut State) {
 
     ctx.block_begin("search");
     ctx.attr_focus_well();
-    ctx.attr_background_rgba(ctx.indexed(IndexedColor::White));
-    ctx.attr_foreground_rgba(ctx.indexed(IndexedColor::Black));
+    ctx.attr_background_rgba(state.menubar_color_bg);
+    ctx.attr_foreground_rgba(state.color_fg);
     {
         if ctx.contains_focus() && ctx.consume_shortcut(vk::ESCAPE) {
             state.wants_search.kind = StateSearchKind::Hidden;
@@ -75,6 +76,7 @@ fn draw_search(ctx: &mut Context, state: &mut State) {
 
         ctx.table_begin("needle");
         ctx.table_set_cell_gap(Size { width: 1, height: 0 });
+        ctx.attr_padding(Rect::two(0, 1));
         {
             {
                 ctx.table_next_row();
@@ -118,6 +120,7 @@ fn draw_search(ctx: &mut Context, state: &mut State) {
 
         ctx.table_begin("options");
         ctx.table_set_cell_gap(Size { width: 2, height: 0 });
+        ctx.attr_padding(Rect::two(0, 1));
         {
             let mut change = false;
             let mut change_action = Some(SearchAction::Search);
@@ -140,12 +143,20 @@ fn draw_search(ctx: &mut Context, state: &mut State) {
                 &mut state.search_options.use_regex,
             );
             if state.wants_search.kind == StateSearchKind::Replace
-                && ctx.button("replace-all", loc(LocId::SearchReplaceAll), ButtonStyle::default())
+                && ctx.button(
+                    "replace-all",
+                    &arena_format!(ctx.arena(), "✏️ {}", loc(LocId::SearchReplaceAll)),
+                    ButtonStyle::default().bracketed(false),
+                )
             {
                 change = true;
                 change_action = Some(SearchAction::ReplaceAll);
             }
-            if ctx.button("close", loc(LocId::SearchClose), ButtonStyle::default()) {
+            if ctx.button(
+                "close",
+                &arena_format!(ctx.arena(), "✕ {}", loc(LocId::SearchClose)),
+                ButtonStyle::default().bracketed(false),
+            ) {
                 state.wants_search.kind = StateSearchKind::Hidden;
             }
 
@@ -253,20 +264,24 @@ pub fn draw_handle_wants_close(ctx: &mut Context, state: &mut State) {
 
             if ctx.button(
                 "yes",
-                loc(LocId::UnsavedChangesDialogYes),
-                ButtonStyle::default().accelerator('S'),
+                &arena_format!(ctx.arena(), "💾 {}", loc(LocId::UnsavedChangesDialogYes)),
+                ButtonStyle::default().accelerator('S').bracketed(false),
             ) {
                 action = Action::Save;
             }
             ctx.inherit_focus();
             if ctx.button(
                 "no",
-                loc(LocId::UnsavedChangesDialogNo),
-                ButtonStyle::default().accelerator('N'),
+                &arena_format!(ctx.arena(), "🗑️ {}", loc(LocId::UnsavedChangesDialogNo)),
+                ButtonStyle::default().accelerator('N').bracketed(false),
             ) {
                 action = Action::Discard;
             }
-            if ctx.button("cancel", loc(LocId::Cancel), ButtonStyle::default()) {
+            if ctx.button(
+                "cancel",
+                &arena_format!(ctx.arena(), "✕ {}", loc(LocId::Cancel)),
+                ButtonStyle::default().bracketed(false),
+            ) {
                 action = Action::Cancel;
             }
 

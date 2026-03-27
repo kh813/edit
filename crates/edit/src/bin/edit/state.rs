@@ -128,8 +128,15 @@ pub struct OscTitleFileStatus {
 }
 
 pub struct State {
+    pub color_bg: StraightRgba,
+    pub color_fg: StraightRgba,
+    pub color_dim: StraightRgba,
+    pub color_accent: StraightRgba,
     pub menubar_color_bg: StraightRgba,
     pub menubar_color_fg: StraightRgba,
+    pub menubar_color_selected: StraightRgba,
+    pub statusbar_color_bg: StraightRgba,
+    pub shadow_color: StraightRgba,
 
     pub documents: DocumentManager,
 
@@ -177,8 +184,15 @@ pub struct State {
 impl State {
     pub fn new() -> apperr::Result<Self> {
         Ok(Self {
+            color_bg: StraightRgba::zero(),
+            color_fg: StraightRgba::zero(),
+            color_dim: StraightRgba::zero(),
+            color_accent: StraightRgba::zero(),
             menubar_color_bg: StraightRgba::zero(),
             menubar_color_fg: StraightRgba::zero(),
+            menubar_color_selected: StraightRgba::zero(),
+            statusbar_color_bg: StraightRgba::zero(),
+            shadow_color: StraightRgba::zero(),
 
             documents: Default::default(),
 

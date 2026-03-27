@@ -17,9 +17,9 @@ use crate::state::*;
 pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
     ctx.table_begin("statusbar");
     ctx.attr_focus_well();
-    ctx.attr_background_rgba(state.menubar_color_bg);
-    ctx.attr_foreground_rgba(state.menubar_color_fg);
-    ctx.table_set_cell_gap(Size { width: 2, height: 0 });
+    ctx.attr_background_rgba(state.statusbar_color_bg);
+    ctx.attr_foreground_rgba(state.color_fg);
+    ctx.table_set_cell_gap(Size { width: 0, height: 0 });
     ctx.attr_intrinsic_size(Size { width: COORD_TYPE_SAFE_MAX, height: 1 });
     ctx.attr_padding(Rect::two(0, 1));
 
@@ -28,18 +28,32 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
 
         ctx.table_next_row();
 
-        if ctx.button("newline", if tb.is_crlf() { "CRLF" } else { "LF" }, ButtonStyle::default()) {
+        if ctx.button(
+            "newline",
+            if tb.is_crlf() { "↵ CRLF" } else { "↵ LF" },
+            ButtonStyle::default().bracketed(false),
+        ) {
             let is_crlf = tb.is_crlf();
             tb.normalize_newlines(!is_crlf);
         }
+        ctx.label("sep1", "  |  ");
+        ctx.attr_foreground_rgba(state.color_dim);
+
         if state.wants_statusbar_focus {
             state.wants_statusbar_focus = false;
             ctx.steal_focus();
         }
 
-        state.wants_encoding_picker |=
-            ctx.button("encoding", tb.encoding(), ButtonStyle::default());
+        state.wants_encoding_picker |= ctx.button(
+            "encoding",
+            &arena_format!(ctx.arena(), "🔤 {}", tb.encoding()),
+            ButtonStyle::default().bracketed(false),
+        );
+        ctx.label("sep2", "  |  ");
+        ctx.attr_foreground_rgba(state.color_dim);
+
         if state.wants_encoding_picker {
+            // ... (keep the existing encoding picker logic, but update colors)
             if doc.path.is_some() {
                 ctx.block_begin("frame");
                 ctx.attr_float(FloatSpec {
@@ -50,19 +64,26 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
                     offset_y: 0.0,
                 });
                 ctx.attr_padding(Rect::two(0, 1));
-                ctx.attr_border();
+                ctx.attr_background_rgba(state.menubar_color_bg);
                 {
-                    if ctx.button("reopen", loc(LocId::EncodingReopen), ButtonStyle::default()) {
+                    if ctx.button(
+                        "reopen",
+                        &arena_format!(ctx.arena(), "✏️ {}", loc(LocId::EncodingReopen)),
+                        ButtonStyle::default().bracketed(false),
+                    ) {
                         state.wants_encoding_change = StateEncodingChange::Reopen;
                     }
                     ctx.focus_on_first_present();
-                    if ctx.button("convert", loc(LocId::EncodingConvert), ButtonStyle::default()) {
+                    if ctx.button(
+                        "convert",
+                        &arena_format!(ctx.arena(), "✏️ {}", loc(LocId::EncodingConvert)),
+                        ButtonStyle::default().bracketed(false),
+                    ) {
                         state.wants_encoding_change = StateEncodingChange::Convert;
                     }
                 }
                 ctx.block_end();
             } else {
-                // Can't reopen a file that doesn't exist.
                 state.wants_encoding_change = StateEncodingChange::Convert;
             }
 
@@ -76,17 +97,16 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
             "indentation",
             &arena_format!(
                 ctx.arena(),
-                "{}:{}",
-                loc(if tb.indent_with_tabs() {
-                    LocId::IndentationTabs
-                } else {
-                    LocId::IndentationSpaces
-                }),
+                "␣×{}",
                 tb.tab_size(),
             ),
-            ButtonStyle::default(),
+            ButtonStyle::default().bracketed(false),
         );
+        ctx.label("sep3", "  |  ");
+        ctx.attr_foreground_rgba(state.color_dim);
+
         if state.wants_indentation_picker {
+            // ... (existing indentation picker logic)
             ctx.table_begin("indentation-picker");
             ctx.attr_float(FloatSpec {
                 anchor: Anchor::Last,
@@ -95,7 +115,7 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
                 offset_x: 0.0,
                 offset_y: 0.0,
             });
-            ctx.attr_border();
+            ctx.attr_background_rgba(state.menubar_color_bg);
             ctx.attr_padding(Rect::two(0, 1));
             ctx.table_set_cell_gap(Size { width: 1, height: 0 });
             {
@@ -153,25 +173,20 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
             "location",
             &arena_format!(
                 ctx.arena(),
-                "{}:{}",
+                "Ln {}, Col {}",
                 tb.cursor_logical_pos().y + 1,
                 tb.cursor_logical_pos().x + 1
             ),
         );
 
-        #[cfg(feature = "debug-latency")]
-        ctx.label(
-            "stats",
-            &arena_format!(ctx.arena(), "{}/{}", tb.logical_line_count(), tb.visual_line_count(),),
-        );
-
-        if tb.is_overtype() && ctx.button("overtype", "OVR", ButtonStyle::default()) {
+        if tb.is_overtype() && ctx.button("overtype", "OVR", ButtonStyle::default().bracketed(false)) {
             tb.set_overtype(false);
             ctx.needs_rerender();
         }
 
         if tb.is_dirty() {
-            ctx.label("dirty", "*");
+            ctx.label("dirty", " ·");
+            ctx.attr_foreground_rgba(state.color_dim);
         }
 
         ctx.block_begin("filename-container");
@@ -186,7 +201,7 @@ pub fn draw_statusbar(ctx: &mut Context, state: &mut State) {
                 filename = &filename_buf;
             }
 
-            state.wants_go_to_file |= ctx.button("filename", filename, ButtonStyle::default());
+            state.wants_go_to_file |= ctx.button("filename", filename, ButtonStyle::default().bracketed(false));
             ctx.inherit_focus();
             ctx.attr_overflow(Overflow::TruncateMiddle);
             ctx.attr_position(Position::Right);
@@ -325,7 +340,7 @@ pub fn draw_go_to_file(ctx: &mut Context, state: &mut State) {
 
                 ctx.styled_list_item_begin();
                 ctx.attr_overflow(Overflow::TruncateTail);
-                ctx.styled_label_add_text(if tb.is_dirty() { "* " } else { "  " });
+                ctx.styled_label_add_text(if tb.is_dirty() { "󱇬 " } else { "  " });
                 ctx.styled_label_add_text(&doc.filename);
 
                 if let Some(path) = &doc.dir {

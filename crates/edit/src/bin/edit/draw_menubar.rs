@@ -12,7 +12,7 @@ use crate::state::*;
 pub fn draw_menubar(ctx: &mut Context, state: &mut State) {
     ctx.menubar_begin();
     ctx.attr_background_rgba(state.menubar_color_bg);
-    ctx.attr_foreground_rgba(state.menubar_color_fg);
+    ctx.attr_foreground_rgba(state.color_fg);
     {
         let contains_focus = ctx.contains_focus();
 
@@ -165,7 +165,11 @@ pub fn draw_dialog_about(ctx: &mut Context, state: &mut State) {
             ctx.attr_padding(Rect::three(1, 2, 0));
             ctx.attr_position(Position::Center);
             {
-                if ctx.button("ok", loc(LocId::Ok), ButtonStyle::default()) {
+                if ctx.button(
+                    "ok",
+                    &arena_format!(ctx.arena(), "✓ {}", loc(LocId::Ok)),
+                    ButtonStyle::default().bracketed(false),
+                ) {
                     state.wants_about = false;
                 }
                 ctx.inherit_focus();
