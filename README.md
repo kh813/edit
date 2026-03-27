@@ -2,9 +2,9 @@
 
 A simple editor for simple needs.
 
-This editor pays homage to the classic [MS-DOS Editor](https://en.wikipedia.org/wiki/MS-DOS_Editor), but with a modern interface and input controls similar to VS Code. The goal is to provide an accessible editor that even users largely unfamiliar with terminals can easily use.
+This editor pays homage to the classic [MS-DOS Editor](https://en.wikipedia.org/wiki/MS-DOS_Editor), but with a modernized TUI featuring the **Tokyo Night theme**, borderless menus, and cross-platform safe icons. The goal is to provide an accessible editor that even users largely unfamiliar with terminals can easily use.
 
-![Screenshot of Edit with the About dialog in the foreground](./assets/edit_hero_image.png)
+![Screenshot of Edit with the Edit menu in the foreground](./assets/edit-new-image.png)
 
 ## Installation
 
